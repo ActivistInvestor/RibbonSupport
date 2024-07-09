@@ -11,6 +11,7 @@ using System.Windows.Input;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.ApplicationServices.Extensions;
 using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.Ribbon.Extensions;
 
 #pragma warning disable CS0612 // Type or member is obsolete
 
@@ -22,7 +23,7 @@ namespace Autodesk.Windows.Extensions
 
       public ModalCommandHandler()
       {
-         CanExecuteManager.Enabled = true;
+         RibbonEventManager.QueryCanExecuteEnabled = true;
          IsModal = true;
       }
 
@@ -34,7 +35,7 @@ namespace Autodesk.Windows.Extensions
       
       public virtual bool CanExecute(object parameter)
       {
-         return IsModal ? CanExecuteManager.HasQuiescentDocument : true;
+         return IsModal ? RibbonEventManager.HasQuiescentDocument : true;
       }
 
       public abstract void Execute(object parameter);

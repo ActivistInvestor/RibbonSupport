@@ -8,9 +8,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Input;
 using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.ApplicationServices.Extensions;
 using Autodesk.AutoCAD.Ribbon;
 using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.Runtime.Diagnostics;
 using Autodesk.Windows;
 
 namespace Autodesk.AutoCAD.Ribbon.Extensions
@@ -255,6 +258,40 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
          });
       }
 
+      /// <summary>
+      /// Forces the WPF framework to requery the CanExecute()
+      /// method of all registered ICommands, to update their 
+      /// UI state when:
+      /// 
+      ///   1. AutoCAD or LISP commands start and end.
+      ///   2. The active document changes.
+      ///   3. The lock state of the active document changes.
+      /// 
+      /// To enable updating one must simply do this:
+      /// 
+      ///    RibbonEventManager.QueryCanExecuteEnabled = true;
+      ///    
+      /// The default implementation of CanExecute() for the
+      /// RibbonCommandButton always returns true. 
+      /// 
+      /// A specialization of RibbonCommandButton included in
+      /// this library (ModalRibbonCommandButton) provides the
+      /// functionality needed to automatically enable/disable 
+      /// itself depending on if there is a quiescent active 
+      /// document, using the functionality provided by this
+      /// class.
+      /// 
+      /// An example ModalRibbonCommandButton can be seen in 
+      /// the RibbonEventManagerExample.cs file.
+      /// 
+      /// </summary>
+
+      public static bool QueryCanExecuteEnabled
+      {
+         get => QueryCanExecuteDriver.Enabled;
+         set => QueryCanExecuteDriver.Enabled = value;
+      }
+
       public static bool RibbonCreated => RibbonControl != null;
 
       public static RibbonPaletteSet RibbonPaletteSet =>
@@ -262,6 +299,8 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       public static RibbonControl? RibbonControl =>
          RibbonPaletteSet?.RibbonControl;
+
+      public static bool HasQuiescentDocument => QueryCanExecuteDriver.HasQuiescentDocument;
 
       /// Helper classes
       /// 
@@ -306,6 +345,180 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
             }
          }
       }
+
+      class IdleDistinct 
+      {
+         static HashSet<Action> actions = new HashSet<Action>();
+
+         /// <summary>
+         /// If the specified Action has already been passed
+         /// to this method, and has not yet executed, it is
+         /// ignore and the action will only execute once on
+         /// the next idle event.
+         /// </summary>
+         /// <param name="action"></param>
+         /// <returns>True if execution of the given action is
+         /// not already pending, or false if it is.</returns>
+
+         public static bool Invoke(Action action)
+         {
+            Assert.IsNotNull(action, nameof(action));
+            if(actions.Add(action))
+            {
+               ActionWrapper wrapper = new ActionWrapper(action);
+               Idle.Invoke(wrapper.Invoke);
+               return true;
+            }
+            return false;
+         }
+
+         class ActionWrapper
+         {
+            Action action;
+
+            public ActionWrapper(Action action)
+            {
+               this.action = action;
+            }
+            public void Invoke()
+            {
+               actions.Remove(action);
+               action();
+            }
+         }
+      }
+
+      class QueryCanExecuteDriver : IDisposable
+      {
+         static DocumentCollection docs = Application.DocumentManager;
+         static QueryCanExecuteDriver instance;
+         private bool disposed;
+         bool eventsEnabled = false;
+
+         QueryCanExecuteDriver()
+         {
+            EnableEvents(true);
+         }
+
+         public static bool Enabled
+         {
+            get
+            {
+               return instance != null;
+            }
+            set
+            {
+               if(instance != null ^ value)
+               {
+                  if(value)
+                  {
+                     instance = new QueryCanExecuteDriver();
+                  }
+                  else
+                  {
+                     instance?.Dispose();
+                     instance = null;
+                  }
+               }
+            }
+         }
+
+         public static bool HasQuiescentDocument
+         {
+            get
+            {
+               Document doc = docs.MdiActiveDocument;
+               if(doc != null)
+               {
+                  return doc.Editor.IsQuiescent
+                     && !doc.Editor.IsDragging
+                     && (doc.LockMode() & DocumentLockMode.NotLocked)
+                           == DocumentLockMode.NotLocked;
+               }
+               return false;
+            }
+         }
+
+         void EnableEvents(bool enable)
+         {
+            if((enable ^ eventsEnabled) && !isQuitting)
+            {
+               eventsEnabled = enable;
+               if(enable)
+               {
+                  docs.DocumentLockModeChanged += documentLockModeChanged;
+                  docs.DocumentActivated += documentActivated;
+                  docs.DocumentDestroyed += documentDestroyed;
+                  Application.QuitWillStart += quit;
+               }
+               else
+               {
+                  docs.DocumentLockModeChanged -= documentLockModeChanged;
+                  docs.DocumentActivated -= documentActivated;
+                  docs.DocumentDestroyed -= documentDestroyed;
+                  Application.QuitWillStart -= quit;
+               }
+            }
+         }
+
+         void InvalidateRequerySuggested()
+         {
+            CommandManager.InvalidateRequerySuggested();
+         }
+
+         /// <summary>
+         /// Handlers of driving events:
+         /// </summary>
+
+         void documentLockModeChanged(object sender, DocumentLockModeChangedEventArgs e)
+         {
+            if(e.Document == docs.MdiActiveDocument && !e.GlobalCommandName.ToUpper().Contains("ACAD_DYNDIM"))
+               InvalidateRequerySuggested();
+         }
+
+         void documentActivated(object sender, DocumentCollectionEventArgs e)
+         {
+            InvalidateRequerySuggested();
+         }
+
+         void documentDestroyed(object sender, DocumentDestroyedEventArgs e)
+         {
+            InvalidateRequerySuggested();
+         }
+
+         void quit(object sender, EventArgs e)
+         {
+            try
+            {
+               EnableEvents(false);
+            }
+            catch
+            {
+            }
+            finally
+            {
+               isQuitting = true;
+            }
+         }
+
+         bool isQuitting = false;
+
+         public bool IsQuitting => isQuitting;
+
+         public void Dispose()
+         {
+            if(!disposed)
+            {
+               this.disposed = true;
+               if(!isQuitting)
+               {
+                  EnableEvents(false);
+               }
+            }
+            GC.SuppressFinalize(this);
+         }
+      }
+
    }
 
    /// <summary>

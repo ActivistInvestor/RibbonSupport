@@ -5,6 +5,7 @@
 /// 
 /// Distributed under the terms of the MIT license
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.AutoCAD.Ribbon;
@@ -50,17 +51,26 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    ///   button2.CommandParameter = button2;
    ///   button2.CommandHandler = handler;
    ///   
+   /// The above can also be accomplished more-easily using 
+   /// the AddButtons() method:
+   /// 
+   ///   handler.AddButtons(button1, button2);
+   ///   
    /// When the instance is used by multiple RibbonCommandButtons,
    /// the Execute() method requires the parameter argument to be
    /// the instance of the RibbonCommandButton that is to execute,
    /// which is done by assigning each button's CommandParmeter
-   /// property to the button as shown above.
+   /// property to each button as shown above. The AddButtons() 
+   /// method performs the required assignments for the programmer.
    ///   
-   /// If a ModalRibbonCommandButtonHandler is passed an 
-   /// instance of a RibbonCommandButton to its constructor, 
-   /// or has an instance of a RibbonCommandButton assigned
-   /// to its Button property, the instance cannot be shared
-   /// by multiple RibbonCommandButtons.
+   /// If a ModalRibbonCommandButtonHandler is passed an instance 
+   /// of RibbonCommandButton to its constructor, or has an instance 
+   /// of a RibbonCommandButton assigned to its Button property, the 
+   /// instance cannot be shared by multiple RibbonCommandButtons.
+   /// 
+   /// All of the above can be further automated by simply using
+   /// the included ModalRibbonCommandButton, rather than its
+   /// base class, as shown in RibbonEventManagerExample.cs.
    /// </summary>
 
    public class ModalRibbonCommandButtonHandler : ModalCommandHandler
@@ -92,9 +102,9 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       /// <summary>
       /// Can be used to simplify sharing of a single
       /// instance of this class with many instances of
-      /// RibbonCommandButton, by simply calling the
-      /// AddButtons() method and passing one or more 
-      /// instances of RibbonCommandButton as arguments.
+      /// RibbonCommandButton, by simply calling this
+      /// method and passing one or more instances of 
+      /// RibbonCommandButton as arguments.
       /// </summary>
 
       public void AddButtons(params RibbonCommandButton[] buttons)
@@ -104,6 +114,8 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       public void AddButtons(IEnumerable<RibbonCommandButton> buttons)
       {
+         if(this.button != null)
+            throw new InvalidOperationException("Instance already using a single RibbonCommandButton");
          if(buttons != null && buttons.Any())
          {
             foreach(RibbonCommandButton button in buttons)
