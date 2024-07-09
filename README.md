@@ -1,0 +1,1 @@
+Supersedes earlier versions of RibbonEventManager and RibbonExtensionApplication
