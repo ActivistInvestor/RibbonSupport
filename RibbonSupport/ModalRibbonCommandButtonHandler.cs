@@ -1,14 +1,9 @@
 ﻿
-/// RibbonEventManagerExample.cs
+/// ModalRibbonCommandButtonHandler.cs
+/// 
 /// ActivistInvestor / Tony T
 /// 
-/// An example showing the use of the 
-/// RibbonEventManager class.
-/// 
-/// Source:
-/// 
-///   https://github.com/ActivistInvestor/AcMgdUtility/blob/main/RibbonEventManager/RibbonEventManagerExample.cs
-///
+/// Distributed under the terms of the MIT license
 
 using System.Collections.Generic;
 using System.Linq;
