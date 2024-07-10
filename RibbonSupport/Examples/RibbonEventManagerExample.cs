@@ -129,6 +129,7 @@ namespace Namespace1
             button.ShowText = true;
 
             /// Using best practices:
+            /// 
             /// To avoid a lot of repetitive code, we define a
             /// simple specialization of RibbonCommandButton
             /// below (MyRibbonCommandButton), that sets common 
@@ -151,6 +152,11 @@ namespace Namespace1
 
             var handler = new ModalRibbonCommandButtonHandler();
             src.Items.SetDefaultCommandButtonHandler(handler);
+
+            /// With the CommandHandlers set to an instance of the
+            /// ModalRibbonCommandButtonHandler, all buttons will
+            /// automatically disable/enable themselves when there
+            /// is a command or other operation in progress.
 
             RibbonPanel panel = new RibbonPanel();
             panel.Source = src;
