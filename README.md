@@ -13,5 +13,7 @@ without having to derive an IExtensionApplication from another
 base type, allowing the functionality to be integrated into any
 existing IExtensionApplication with minimal effort.
 
-RibbonEventManager has also gained support for enabling querying
-of ICommand.GetCanExecute().
+RibbonEventManager now also supports enabling the querying
+of ICommand.CanExecute() for all ribbon item command handlers
+when commands or macros start/end, and when the active document 
+changes.
