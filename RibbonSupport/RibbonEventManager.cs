@@ -10,8 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Input;
 using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.ApplicationServices.Extensions;
-using Autodesk.AutoCAD.Ribbon;
+using Autodesk.AutoCAD.Internal;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 using Autodesk.Windows;
@@ -106,6 +105,10 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    /// 1. Revision 1 above has been rolled-back due to issues
    ///    related to unhandled exceptions thrown from await'ed 
    ///    continuations, that cause AutoCAD to terminate.
+   ///    
+   /// 7/9/24 
+   /// 
+   /// 1. Merging CanExecuteManager into RibbonEventManager.
    /// 
    /// Test scenarios covered:
    /// 
@@ -153,8 +156,11 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    public static class RibbonEventManager
    {
       static DocumentCollection documents = Application.DocumentManager;
-      static bool initialized = false;
       static event RibbonStateEventHandler initializeRibbon = null;
+      static bool initialized = false;
+      static bool quiescent = true;
+      static bool isQuiescentValid = false;
+
 
       static RibbonEventManager()
       {
@@ -288,8 +294,45 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       public static bool QueryCanExecuteEnabled
       {
-         get => QueryCanExecuteDriver.Enabled;
-         set => QueryCanExecuteDriver.Enabled = value;
+         get => EditorStateObserver.Enabled;
+         set => EditorStateObserver.Enabled = value;
+      }
+
+      /// <summary>
+      /// This can be called at a high frequency by numerous
+      /// CanExecute() implementations, which can become very 
+      /// expensive. 
+      /// 
+      /// The last calculated result is cached and reused until 
+      /// one of the events that signals that the value may have 
+      /// effectively-changed is raised.
+      /// </summary>
+      
+      public static bool IsQuiescentDocument
+      {
+         get
+         {
+            if(isQuiescentValid)
+               return quiescent;
+            quiescent = false;
+            Document doc = documents.MdiActiveDocument;
+            if(doc != null)
+            {
+               quiescent = doc.Editor.IsQuiescent
+                  && !doc.Editor.IsDragging
+                  && (doc.LockMode() & DocumentLockMode.NotLocked)
+                        == DocumentLockMode.NotLocked;
+            }
+            isQuiescentValid = true;
+            return quiescent;
+         }
+      }
+
+      public static bool IsQuiescent => Utils.IsInQuiescentState();
+      
+      static void InvalidateCachedQuiescentState()
+      {
+         isQuiescentValid = false;         
       }
 
       public static bool RibbonCreated => RibbonControl != null;
@@ -300,8 +343,6 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       public static RibbonControl? RibbonControl =>
          RibbonPaletteSet?.RibbonControl;
 
-      public static bool HasQuiescentDocument => QueryCanExecuteDriver.HasQuiescentDocument;
-
       /// Helper classes
       /// 
       /// <summary>
@@ -309,7 +350,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       /// until the next Idle event is raised.
       /// </summary>
 
-      class Idle
+      public class Idle
       {
          Action action;
          static Idle current = null;
@@ -321,6 +362,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
          public static void Invoke(Action action, bool deferred = false)
          {
+            Assert.IsNotNull(action, nameof(action));
             if(current != null && !deferred)
                action();
             else
@@ -330,74 +372,83 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
          private void idle(object sender, EventArgs e)
          {
             Application.Idle -= idle;
-            current = this;
-            try
+            if(action != null)
             {
-               if(action != null)
+               current = this;
+               try
                {
                   action();
                   action = null;
                }
+               finally
+               {
+                  current = null;
+               }
             }
-            finally
+         }
+       
+         public class Distinct
+         {
+            static HashSet<Action> actions = new HashSet<Action>();
+
+            /// <summary>
+            /// If the specified Action has already been passed
+            /// to this method but has not yet executed, it is
+            /// ignored and the action will only execute once on
+            /// the next idle event.
+            /// 
+            /// Hence, this method can be called multiple times
+            /// with the same action argument, but that action
+            /// will execute only once on the next idle event.
+            /// </summary>
+            /// <param name="action"></param>
+            /// <returns>True if execution of the given action is
+            /// not already pending, or false if it is.</returns>
+
+            public static bool Invoke(Action action)
             {
-               current = null;
+               Assert.IsNotNull(action, nameof(action));
+               if(actions.Add(action))
+               {
+                  new Wrapper(action);
+                  return true;
+               }
+               return false;
+            }
+
+            class Wrapper
+            {
+               Action action;
+
+               public Wrapper(Action action)
+               {
+                  this.action = action;
+                  Idle.Invoke(Invoke);
+               }
+               public void Invoke()
+               {
+                  if(action != null)
+                  {
+                     actions.Remove(action);
+                     action();
+                     action = null;
+                  }
+               }
             }
          }
       }
 
-      class IdleDistinct 
-      {
-         static HashSet<Action> actions = new HashSet<Action>();
-
-         /// <summary>
-         /// If the specified Action has already been passed
-         /// to this method, and has not yet executed, it is
-         /// ignore and the action will only execute once on
-         /// the next idle event.
-         /// </summary>
-         /// <param name="action"></param>
-         /// <returns>True if execution of the given action is
-         /// not already pending, or false if it is.</returns>
-
-         public static bool Invoke(Action action)
-         {
-            Assert.IsNotNull(action, nameof(action));
-            if(actions.Add(action))
-            {
-               ActionWrapper wrapper = new ActionWrapper(action);
-               Idle.Invoke(wrapper.Invoke);
-               return true;
-            }
-            return false;
-         }
-
-         class ActionWrapper
-         {
-            Action action;
-
-            public ActionWrapper(Action action)
-            {
-               this.action = action;
-            }
-            public void Invoke()
-            {
-               actions.Remove(action);
-               action();
-            }
-         }
-      }
-
-      class QueryCanExecuteDriver : IDisposable
+      class EditorStateObserver : IDisposable
       {
          static DocumentCollection docs = Application.DocumentManager;
-         static QueryCanExecuteDriver instance;
+         static EditorStateObserver instance;
          private bool disposed;
-         bool eventsEnabled = false;
+         bool enabled = false;
 
-         QueryCanExecuteDriver()
+         EditorStateObserver()
          {
             EnableEvents(true);
+            RibbonEventManager.InvalidateCachedQuiescentState();
          }
 
          public static bool Enabled
@@ -412,7 +463,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
                {
                   if(value)
                   {
-                     instance = new QueryCanExecuteDriver();
+                     instance = new EditorStateObserver();
                   }
                   else
                   {
@@ -423,28 +474,12 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
             }
          }
 
-         public static bool HasQuiescentDocument
+         void EnableEvents(bool value)
          {
-            get
+            if((value ^ enabled) && !isQuitting)
             {
-               Document doc = docs.MdiActiveDocument;
-               if(doc != null)
-               {
-                  return doc.Editor.IsQuiescent
-                     && !doc.Editor.IsDragging
-                     && (doc.LockMode() & DocumentLockMode.NotLocked)
-                           == DocumentLockMode.NotLocked;
-               }
-               return false;
-            }
-         }
-
-         void EnableEvents(bool enable)
-         {
-            if((enable ^ eventsEnabled) && !isQuitting)
-            {
-               eventsEnabled = enable;
-               if(enable)
+               enabled = value;
+               if(value)
                {
                   docs.DocumentLockModeChanged += documentLockModeChanged;
                   docs.DocumentActivated += documentActivated;
@@ -464,10 +499,19 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
          void InvalidateRequerySuggested()
          {
             CommandManager.InvalidateRequerySuggested();
+            RibbonEventManager.InvalidateCachedQuiescentState();
          }
 
          /// <summary>
          /// Handlers of driving events:
+         /// 
+         /// These events signal that the effective-quiescent state
+         /// may have changed. When one of them is raised, WPF is told
+         /// to requery the CanExecute() method of registered ICommands,
+         /// and the state of connected UI elements is updated.
+         /// 
+         /// It should be noted that this can become very expensive, and
+         /// is probably why AutoCAD doesn't 'kick' WPF into doing it.
          /// </summary>
 
          void documentLockModeChanged(object sender, DocumentLockModeChangedEventArgs e)

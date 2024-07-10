@@ -60,7 +60,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    /// the Execute() method requires the parameter argument to be
    /// the instance of the RibbonCommandButton that is to execute,
    /// which is done by assigning each button's CommandParmeter
-   /// property to each button as shown above. The AddButtons() 
+   /// property to each button as shown above. The SetAsHandler() 
    /// method performs the required assignments for the programmer.
    ///   
    /// If a ModalRibbonCommandButtonHandler is passed an instance 
@@ -71,15 +71,31 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    /// All of the above can be further automated by simply using
    /// the included ModalRibbonCommandButton, rather than its
    /// base class, as shown in RibbonEventManagerExample.cs.
+   /// 
+   /// Custom ICommands:
+   /// 
+   /// Any RibbonItem that uses a custom ICommand handler can also
+   /// provide an implementation of CanExecute() that behaves the
+   /// same way that CanExecute() method of these class does. That
+   /// can be done by just returning the value returned by a call
+   /// to the RibbonEventManager's IsQuiescentDocument property:
+   /// 
+   ///   public bool CanExecute(object parameter)
+   ///   {
+   ///      return RibbonEventManager.IsQuiescentDocument;
+   ///   }
+   /// 
    /// </summary>
 
    public class ModalRibbonCommandButtonHandler : ModalCommandHandler
    {
       RibbonCommandButton button;
+      bool shared = false;
 
-      public ModalRibbonCommandButtonHandler(RibbonCommandButton item = null)
+      public ModalRibbonCommandButtonHandler(RibbonCommandButton button = null)
       {
-         this.Button = item;
+         this.Button = button;
+         shared = button != null;
          this.IsModal = true;
       }
 
@@ -88,6 +104,8 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
          get { return button; }
          set
          {
+            if(shared)
+               throw new InvalidOperationException("Instance already associated with multiple RibbonCommandButtons");
             if(button != value) 
             {
                if(button != null)
@@ -107,15 +125,16 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       /// RibbonCommandButton as arguments.
       /// </summary>
 
-      public void AddButtons(params RibbonCommandButton[] buttons)
+      public void SetAsHandler(params RibbonCommandButton[] buttons)
       {
-         AddButtons((IEnumerable<RibbonCommandButton>)buttons);
+         SetAsHandler((IEnumerable<RibbonCommandButton>) buttons);
       }
 
-      public void AddButtons(IEnumerable<RibbonCommandButton> buttons)
+      public void SetAsHandler(IEnumerable<RibbonCommandButton> buttons)
       {
          if(this.button != null)
-            throw new InvalidOperationException("Instance already using a single RibbonCommandButton");
+            throw new InvalidOperationException(
+               "Instance already associated with a single RibbonCommandButton");
          if(buttons != null && buttons.Any())
          {
             foreach(RibbonCommandButton button in buttons)
@@ -126,6 +145,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
                   button.CommandParameter = button;
                }
             }
+            shared = true;
          }
       }
 

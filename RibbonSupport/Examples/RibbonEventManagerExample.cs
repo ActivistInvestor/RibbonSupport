@@ -32,6 +32,8 @@
 /// provided by the CanExecuteManager class.
 
 
+using Ac2025Project.Test;
+using Autodesk.AutoCAD.Ribbon;
 using Autodesk.AutoCAD.Ribbon.Extensions;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.Windows;
@@ -43,8 +45,6 @@ using Autodesk.Windows;
 /// based class:
 
 [assembly: ExtensionApplication(typeof(Namespace1.MyApplication))]
-
-#pragma warning disable CS0612 // Type or member is obsolete
 
 namespace Namespace1
 {
@@ -122,6 +122,39 @@ namespace Namespace1
             button.Size = RibbonItemSize.Large;
             button.ShowText = true;
             src.Items.Add(button);
+
+            /// Add a standard RibbonCommandButton
+            var button2 = new RibbonCommandButton("LINE", "ID_LINE");
+            button2.Text = "  LINE  ";
+            button2.Size = RibbonItemSize.Large;
+            button2.ShowText = true;
+            src.Items.Add(button2);
+
+            /// Add aother standard RibbonCommandButton
+            var button3 = new RibbonCommandButton("CIRCLE", "ID_CIRCLE");
+            button3.Text = "  CIRCLE  ";
+            button3.Size = RibbonItemSize.Large;
+            button3.ShowText = true;
+            src.Items.Add(button3);
+
+            /// And one more...
+            var button4 = new RibbonCommandButton("PLINE", "ID_PLINE");
+            button4.Text = "  PLINE  ";
+            button4.Size = RibbonItemSize.Large;
+            button4.ShowText = true;
+            src.Items.Add(button4);
+
+
+            /// Create a ModalRibbonCommandButtonHandler 
+            /// to act as the CommandHandler for all of 
+            /// the RibbonCommandButtons:
+
+            var handler = new ModalRibbonCommandButtonHandler();
+
+            /// Set the above handler to be the CommandHandler 
+            /// for the three RibbonCommandButtons:
+            
+            handler.SetAsHandler(button2, button3, button4);
 
             RibbonPanel panel = new RibbonPanel();
             panel.Source = src;

@@ -8,6 +8,7 @@
 
 using Autodesk.Windows;
 using Autodesk.Windows.Extensions;
+using System.Collections;
 
 #pragma warning disable CS0612 // Type or member is obsolete
 
@@ -32,6 +33,10 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
          this.item = item;
          this.item.CommandHandler = this;
       }
+   }
+
+   public class ModalRibbonCommandItem : RibbonCommandItem
+   {
 
    }
 
