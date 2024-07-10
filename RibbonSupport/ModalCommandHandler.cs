@@ -36,17 +36,8 @@ namespace Autodesk.Windows.Extensions
       
       public virtual bool CanExecute(object parameter)
       {
-         bool result = IsModal ? RibbonEventManager.IsQuiescentDocument : true;
-         //if(QueryCanExecute != null)
-         //{
-         //   var args = new QueryCanExecuteEventArgs(result, parameter);
-         //   QueryCanExecute?.Invoke(this, args);
-         //   return args.CanExecute;
-         //}
-         return result;          
+         return IsModal ? RibbonEventManager.IsQuiescentDocument : true;
       }
-
-      //public event QueryCanExecuteEventHandler QueryCanExecute;
 
       public abstract void Execute(object parameter);
 
@@ -54,17 +45,4 @@ namespace Autodesk.Windows.Extensions
          Application.DocumentManager.MdiActiveDocument?.Editor;
    }
 
-   public delegate void QueryCanExecuteEventHandler(object sender, QueryCanExecuteEventArgs e);
-
-   public class QueryCanExecuteEventArgs : EventArgs
-   {
-      public QueryCanExecuteEventArgs(bool canExecute, object parameter)
-      {
-         this.CanExecute = canExecute;
-         this.Parameter = parameter;
-      }
-
-      public bool CanExecute { get; set; }
-      public object Parameter { get; private set; }
-   }
 }
