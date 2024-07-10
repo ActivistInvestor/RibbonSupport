@@ -59,7 +59,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    /// When the instance is used by multiple RibbonCommandButtons,
    /// the Execute() method requires the parameter argument to be
    /// the instance of the RibbonCommandButton that is to execute,
-   /// which is done by assigning each button's CommandParmeter
+   /// which is done by assigning each button's CommandParameter
    /// property to each button as shown above. The SetAsHandler() 
    /// method performs the required assignments for the programmer.
    ///   
@@ -74,10 +74,11 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    /// 
    /// Custom ICommands:
    /// 
-   /// Any RibbonItem that uses a custom ICommand handler can also
-   /// provide an implementation of CanExecute() that behaves the
-   /// same way that CanExecute() method of these class does. That
-   /// can be done by just returning the value returned by a call
+   /// Any RibbonCommandItem that uses a custom ICommand handler can 
+   /// also provide an implementation of CanExecute() that behaves the
+   /// same way that CanExecute() method of these class does. 
+   /// 
+   /// That can be done by just returning the value returned by a call
    /// to the RibbonEventManager's IsQuiescentDocument property:
    /// 
    ///   public bool CanExecute(object parameter)

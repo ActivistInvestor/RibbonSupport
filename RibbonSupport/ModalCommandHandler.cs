@@ -27,6 +27,11 @@ namespace Autodesk.Windows.Extensions
          IsModal = true;
       }
 
+      /// <summary>
+      /// Indicates if the RibbonCommandItem associated
+      /// with the instance should be disabled when there
+      /// is an active command.
+      /// </summary>
       public virtual bool IsModal { get; set; }   
 
       /// <summary>

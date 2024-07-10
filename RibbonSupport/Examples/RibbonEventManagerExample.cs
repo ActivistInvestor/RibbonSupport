@@ -147,7 +147,7 @@ namespace Namespace1
 
             /// Create a ModalRibbonCommandButtonHandler 
             /// to act as the CommandHandler for all of 
-            /// the RibbonCommandButtons:
+            /// the standard RibbonCommandButtons:
 
             var handler = new ModalRibbonCommandButtonHandler();
 

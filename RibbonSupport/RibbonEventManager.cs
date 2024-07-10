@@ -7,7 +7,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Extensions;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Internal;
@@ -158,7 +160,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       static DocumentCollection documents = Application.DocumentManager;
       static event RibbonStateEventHandler initializeRibbon = null;
       static bool initialized = false;
-      static bool quiescent = true;
+      static CachedValue<bool> quiescent = new CachedValue<bool>(GetIsQuiescent);
       static bool isQuiescentValid = false;
 
 
@@ -304,37 +306,45 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       /// expensive. 
       /// 
       /// The last calculated result is cached and reused until 
-      /// one of the events that signals that the value may have 
-      /// effectively-changed is raised.
+      /// one of the events that signals that the state may have 
+      /// changed is raised.
+      /// 
+      /// Returns a value indicating if there is an active
+      /// document and it is in a quiescent state. If there
+      /// are no documents open, this property returns false.
       /// </summary>
-      
-      public static bool IsQuiescentDocument
+
+      public static bool IsQuiescentDocument => quiescent.Value;
+
+      static bool GetIsQuiescent()
       {
-         get
+         bool result = false;
+         Document doc = documents.MdiActiveDocument;
+         if(doc != null)
          {
-            if(isQuiescentValid)
-               return quiescent;
-            quiescent = false;
-            Document doc = documents.MdiActiveDocument;
-            if(doc != null)
-            {
-               quiescent = doc.Editor.IsQuiescent
-                  && !doc.Editor.IsDragging
-                  && (doc.LockMode() & DocumentLockMode.NotLocked)
-                        == DocumentLockMode.NotLocked;
-            }
-            isQuiescentValid = true;
-            return quiescent;
+            result = doc.Editor.IsQuiescent
+               && !doc.Editor.IsDragging
+               && (doc.LockMode() & DocumentLockMode.NotLocked)
+                     == DocumentLockMode.NotLocked;
          }
+         return result;
+      }
+
+      static void InvalidateQuiescentState()
+      {
+         quiescent.Invalidate();
+         OnIsQuiescentDocumentChanged(EventArgs.Empty);
+      }
+
+      public static event EventHandler IsQuiescentDocumentChanged;
+
+      static void OnIsQuiescentDocumentChanged(EventArgs e)
+      {
+         IsQuiescentDocumentChanged?.Invoke(null, e);
       }
 
       public static bool IsQuiescent => Utils.IsInQuiescentState();
       
-      static void InvalidateCachedQuiescentState()
-      {
-         isQuiescentValid = false;         
-      }
-
       public static bool RibbonCreated => RibbonControl != null;
 
       public static RibbonPaletteSet RibbonPaletteSet =>
@@ -448,7 +458,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
          EditorStateObserver()
          {
             EnableEvents(true);
-            RibbonEventManager.InvalidateCachedQuiescentState();
+            RibbonEventManager.InvalidateQuiescentState();
          }
 
          public static bool Enabled
@@ -499,7 +509,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
          void InvalidateRequerySuggested()
          {
             CommandManager.InvalidateRequerySuggested();
-            RibbonEventManager.InvalidateCachedQuiescentState();
+            RibbonEventManager.InvalidateQuiescentState();
          }
 
          /// <summary>
