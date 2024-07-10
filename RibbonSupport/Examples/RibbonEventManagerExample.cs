@@ -115,7 +115,7 @@ namespace Namespace1
             /// This button comes with its own CommandHandler:
             var button = new ModalRibbonCommandButton("REGEN", "ID_REGENALL");
             src.Items.Add(button);
-            button.Text = "  REGENALL  ";
+            button.Text = "  REGEN  ";
             button.Size = RibbonItemSize.Large;
             button.Orientation = Orientation.Vertical;
             button.ShowText = true;
@@ -123,7 +123,7 @@ namespace Namespace1
             /// Add another ModalRibbonCommandButton:
             button = new ModalRibbonCommandButton("REGENALL", "ID_REGENALL");
             src.Items.Add(button);
-            button.Text = "  REGEN  ";
+            button.Text = "  REGENALL  ";
             button.Size = RibbonItemSize.Large;
             button.Orientation = Orientation.Vertical;
             button.ShowText = true;
@@ -188,7 +188,8 @@ namespace Namespace1
          this.Orientation = Orientation.Vertical;
          this.Size = RibbonItemSize.Large;
          this.ShowText = true;
-         this.Text = $"  {macro}  ";
+         this.MinWidth = 20;
+         this.Text = $"   {macro}   ";
       }
    }
 

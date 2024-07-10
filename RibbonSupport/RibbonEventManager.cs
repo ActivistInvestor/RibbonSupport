@@ -160,9 +160,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       static DocumentCollection documents = Application.DocumentManager;
       static event RibbonStateEventHandler initializeRibbon = null;
       static bool initialized = false;
-      static CachedValue<bool> quiescent = new CachedValue<bool>(GetIsQuiescent);
-      static bool isQuiescentValid = false;
-
+      static Cached<bool> quiescent = new Cached<bool>(GetIsQuiescent);
 
       static RibbonEventManager()
       {
@@ -302,15 +300,13 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       /// <summary>
       /// This can be called at a high frequency by numerous
-      /// CanExecute() implementations, which can become very 
-      /// expensive. 
-      /// 
-      /// The last calculated result is cached and reused until 
-      /// one of the events that signals that the state may have 
-      /// changed is raised.
+      /// ICommands, which can be very expensive. To minimize
+      /// the overhead of referencing this property, the value
+      /// it returns is cached and reused until one of the events 
+      /// that signals that the state may have changed is raised.
       /// 
       /// Returns a value indicating if there is an active
-      /// document and it is in a quiescent state. If there
+      /// document, and it is in a quiescent state. If there
       /// are no documents open, this property returns false.
       /// </summary>
 
@@ -318,22 +314,22 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       static bool GetIsQuiescent()
       {
-         bool result = false;
          Document doc = documents.MdiActiveDocument;
          if(doc != null)
          {
-            result = doc.Editor.IsQuiescent
+            return doc.Editor.IsQuiescent
                && !doc.Editor.IsDragging
                && (doc.LockMode() & DocumentLockMode.NotLocked)
                      == DocumentLockMode.NotLocked;
          }
-         return result;
+         return false;
       }
 
       static void InvalidateQuiescentState()
       {
          quiescent.Invalidate();
          OnIsQuiescentDocumentChanged(EventArgs.Empty);
+         CommandManager.InvalidateRequerySuggested();
       }
 
       public static event EventHandler IsQuiescentDocumentChanged;
@@ -360,7 +356,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       /// until the next Idle event is raised.
       /// </summary>
 
-      public class Idle
+      class Idle
       {
          Action action;
          static Idle current = null;
@@ -369,6 +365,14 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
             this.action = action;
             Application.Idle += idle;
          }
+
+         /// <summary>
+         /// If this method is called from an action that
+         /// was passed to a previous call to this method,
+         /// and the deferred argument is false, the action 
+         /// executes immediately and is not deferred until 
+         /// the next idle event.
+         /// </summary>
 
          public static void Invoke(Action action, bool deferred = false)
          {
@@ -508,7 +512,6 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
          void InvalidateRequerySuggested()
          {
-            CommandManager.InvalidateRequerySuggested();
             RibbonEventManager.InvalidateQuiescentState();
          }
 
