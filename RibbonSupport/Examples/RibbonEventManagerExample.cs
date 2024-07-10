@@ -37,6 +37,8 @@ using Autodesk.AutoCAD.Ribbon;
 using Autodesk.AutoCAD.Ribbon.Extensions;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.Windows;
+using System.Linq;
+using System.Windows.Controls;
 
 /// TODO: If you use this example as a starting
 /// point, then you should modify the argument 
@@ -109,52 +111,46 @@ namespace Namespace1
 
             var src = new RibbonPanelSource();
 
-            /// Add a ModalRibbonCommandButton
+            /// Add a ModalRibbonCommandButton.
+            /// This button comes with its own CommandHandler:
             var button = new ModalRibbonCommandButton("REGEN", "ID_REGENALL");
-            button.Text = "  Test Button1  ";
-            button.Size = RibbonItemSize.Large;
-            button.ShowText = true;
             src.Items.Add(button);
+            button.Text = "  REGENALL  ";
+            button.Size = RibbonItemSize.Large;
+            button.Orientation = Orientation.Vertical;
+            button.ShowText = true;
 
-            /// Add another ModalRibbonCommandButton
+            /// Add another ModalRibbonCommandButton:
             button = new ModalRibbonCommandButton("REGENALL", "ID_REGENALL");
-            button.Text = "  Test Button2  ";
-            button.Size = RibbonItemSize.Large;
-            button.ShowText = true;
             src.Items.Add(button);
+            button.Text = "  REGEN  ";
+            button.Size = RibbonItemSize.Large;
+            button.Orientation = Orientation.Vertical;
+            button.ShowText = true;
 
-            /// Add a standard RibbonCommandButton
-            var button2 = new RibbonCommandButton("LINE", "ID_LINE");
-            button2.Text = "  LINE  ";
-            button2.Size = RibbonItemSize.Large;
-            button2.ShowText = true;
-            src.Items.Add(button2);
+            /// Using best practices:
+            /// To avoid a lot of repetitive code, we define a
+            /// simple specialization of RibbonCommandButton
+            /// below (MyRibbonCommandButton), that sets common 
+            /// property values in its constructor, avoiding the 
+            /// need to do that for each instance created. The
+            /// only parameter needed is the macro that executes
+            /// when the user clicks the button.
 
-            /// Add aother standard RibbonCommandButton
-            var button3 = new RibbonCommandButton("CIRCLE", "ID_CIRCLE");
-            button3.Text = "  CIRCLE  ";
-            button3.Size = RibbonItemSize.Large;
-            button3.ShowText = true;
-            src.Items.Add(button3);
+            /// Add a few MyRibbonCommandButtons:
+            src.Items.Add(new MyRibbonCommandButton("LINE"));
+            src.Items.Add(new MyRibbonCommandButton("CIRCLE"));
+            src.Items.Add(new MyRibbonCommandButton("SPLINE"));
+            src.Items.Add(new MyRibbonCommandButton("PLINE"));
 
-            /// And one more...
-            var button4 = new RibbonCommandButton("PLINE", "ID_PLINE");
-            button4.Text = "  PLINE  ";
-            button4.Size = RibbonItemSize.Large;
-            button4.ShowText = true;
-            src.Items.Add(button4);
-
-
-            /// Create a ModalRibbonCommandButtonHandler 
-            /// to act as the CommandHandler for all of 
-            /// the standard RibbonCommandButtons:
+            /// The MyRibbonCommandButtons created above are not
+            /// functional because they have no CommandHandler, so
+            /// we'll create a single command handler and assign it
+            /// to all of the buttons, using an extension method 
+            /// included in this library:
 
             var handler = new ModalRibbonCommandButtonHandler();
-
-            /// Set the above handler to be the CommandHandler 
-            /// for the three RibbonCommandButtons:
-            
-            handler.SetAsHandler(button2, button3, button4);
+            src.Items.SetDefaultCommandButtonHandler(handler);
 
             RibbonPanel panel = new RibbonPanel();
             panel.Source = src;
@@ -164,6 +160,29 @@ namespace Namespace1
 
       public void Terminate()
       {
+      }
+   }
+
+   /// <summary>
+   /// A locally-used specialization of RibbonCommandButton 
+   /// that merely presets some properties to desired common
+   /// values for this specific use case.
+   /// 
+   /// If one needs to create many instances that should all
+   /// have some of their properties set to common values, it
+   /// is easier to just derive a specialization, and in the
+   /// constructor, set the common property values.
+   /// </summary>   
+   
+   public class MyRibbonCommandButton : RibbonCommandButton
+   {
+      public MyRibbonCommandButton(string macro)
+         : base(macro, $"ID_{macro}")
+      {
+         this.Orientation = Orientation.Vertical;
+         this.Size = RibbonItemSize.Large;
+         this.ShowText = true;
+         this.Text = $"  {macro}  ";
       }
    }
 

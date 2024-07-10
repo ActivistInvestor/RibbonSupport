@@ -9,6 +9,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.AutoCAD.Ribbon;
+using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.Runtime.Diagnostics;
+using Autodesk.Windows;
 using Autodesk.Windows.Extensions;
 
 #pragma warning disable CS0612 // Type or member is obsolete
@@ -52,7 +55,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    ///   button2.CommandHandler = handler;
    ///   
    /// The above can also be accomplished more-easily using 
-   /// the AddButtons() method:
+   /// the SetAsHandler() method:
    /// 
    ///   handler.SetAsHandler(button1, button2);
    ///   
@@ -74,12 +77,12 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    /// 
    /// Custom ICommands:
    /// 
-   /// Any RibbonCommandItem that uses a custom ICommand handler can 
-   /// also provide an implementation of CanExecute() that behaves the
-   /// same way that CanExecute() method of these class does. 
+   /// Any RibbonCommandItem that uses a custom ICommand handler 
+   /// can also provide an implementation of CanExecute() that 
+   /// behaves like the CanExecute() method of these classes. 
    /// 
-   /// That can be done by just returning the value returned by a call
-   /// to the RibbonEventManager's IsQuiescentDocument property:
+   /// That can be done by just returning the value returned by 
+   /// the RibbonEventManager's IsQuiescentDocument property:
    /// 
    ///   public bool CanExecute(object parameter)
    ///   {
@@ -124,6 +127,11 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       /// RibbonCommandButton, by simply calling this
       /// method and passing one or more instances of 
       /// RibbonCommandButton as arguments.
+      /// 
+      /// Note: Using a single instance of this class as a 
+      /// handler for multiple RibbonCommandButtons requires 
+      /// each RibbonCommandButton's CommandParameter be
+      /// assigned to the RibbonCommandButton instance.
       /// </summary>
 
       public void SetAsHandler(params RibbonCommandButton[] buttons)
@@ -152,14 +160,31 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       public override void Execute(object parameter)
       {
-         if(button == null)
-         {
-            if(parameter is RibbonCommandButton target)
-               target.Execute(this);
-         }
-         else
+         if(button != null)
          {
             button.Execute(parameter);
+         }
+         else if(parameter is RibbonCommandButton target)
+         {
+            target.Execute(target); 
+         }
+      }
+   }
+
+   public static class ModalRibbonCommandButtonExtensions
+   {
+      public static void SetDefaultCommandButtonHandler(this RibbonItemCollection items, ModalRibbonCommandButtonHandler handler)
+      {
+         Assert.IsNotNull(items, nameof(items));
+         Assert.IsNotNull(handler, nameof(handler));
+         string empty = "(null)";
+         foreach(RibbonCommandButton item in items.OfType<RibbonCommandButton>())
+         {
+            if(item.CommandHandler == null)
+            {
+               item.CommandHandler = handler;
+               item.CommandParameter = item;
+            }
          }
       }
    }
