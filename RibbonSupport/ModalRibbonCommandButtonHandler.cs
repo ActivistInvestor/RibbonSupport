@@ -54,7 +54,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    /// The above can also be accomplished more-easily using 
    /// the AddButtons() method:
    /// 
-   ///   handler.AddButtons(button1, button2);
+   ///   handler.SetAsHandler(button1, button2);
    ///   
    /// When the instance is used by multiple RibbonCommandButtons,
    /// the Execute() method requires the parameter argument to be
