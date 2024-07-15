@@ -1,3 +1,6 @@
+All code from this repo has been merged into AcMgdLib
+at https://github.com/ActivistInvestor/AcMgdLib
+
 RibbonExtensionApplication has been deprecated
 in favor of RibbonEventManager.
 
